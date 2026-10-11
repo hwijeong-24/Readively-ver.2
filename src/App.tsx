@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Home } from 'lucide-react';
 import { WordDefinition, WordBankItem, ReadingFeedback } from './types';
 import { STORY_PAGES, INFERENCE_QUESTIONS } from './data/storyData';
 import { Header } from './components/Header';
@@ -16,7 +17,6 @@ import { FinalScreen } from './components/FinalScreen';
 import { BookCatalogScreen } from './components/BookCatalogScreen';
 import { WordModal } from './components/WordModal';
 import { WordBankModal } from './components/WordBankModal';
-import { HomeConfirmModal } from './components/HomeConfirmModal';
 import { stopSpeaking } from './utils/speech';
 
 const STORAGE_KEY = 'readively_state_v3';
@@ -25,6 +25,7 @@ const CURRENT_STORY_ID = 'max-the-brave';
 type ScreenType = 'cover' | 'story' | 'question' | 'result' | 'rebuilder' | 'final' | 'catalog';
 
 export default function App() {
+  const [showHomeConfirmModal, setShowHomeConfirmModal] = useState<boolean>(false);
   const [screen, setScreen] = useState<ScreenType>('cover');
   const [currentPageNum, setCurrentPageNum] = useState<number>(1);
   const [currentQuestionId, setCurrentQuestionId] = useState<string>('q1');
@@ -41,7 +42,6 @@ export default function App() {
   // Modal States
   const [activeWordPopup, setActiveWordPopup] = useState<WordDefinition | null>(null);
   const [isWordBankOpen, setIsWordBankOpen] = useState<boolean>(false);
-  const [isHomeConfirmOpen, setIsHomeConfirmOpen] = useState<boolean>(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -193,19 +193,18 @@ export default function App() {
     }
   };
 
-  // Return to Cover screen and reset current reading progress (keeps badges, completed stories, and word bank)
-  const handleConfirmHome = () => {
-    stopSpeaking();
+  // Restart current story from Cover screen
+  const handleRestartStory = () => {
     setCurrentPageNum(1);
     setReadSentenceIds(new Set());
     setSentenceFeedbacks({});
     setQuestionAnswers({});
     setScreen('cover');
-    setIsHomeConfirmOpen(false);
   };
 
-  // Restart current story from Cover screen
-  const handleRestartStory = () => {
+  // Home Button Confirmation handler (Requirement 3: resets reading progress, preserves cumulative badges & completed stories)
+  const handleConfirmHome = () => {
+    setShowHomeConfirmModal(false);
     stopSpeaking();
     setCurrentPageNum(1);
     setReadSentenceIds(new Set());
@@ -223,19 +222,14 @@ export default function App() {
         isCover={screen === 'cover'}
         isResult={screen === 'result' || screen === 'final'}
         isQuestion={screen === 'question'}
-        screenTitle={
-          screen === 'rebuilder'
-            ? 'Story Rebuilder'
-            : screen === 'catalog'
-            ? 'Library'
-            : undefined
-        }
+        isRebuilder={screen === 'rebuilder'}
+        isCatalog={screen === 'catalog'}
         wordBankCount={savedWords.length}
         badgeCount={badgeCount}
         soundEnabled={soundEnabled}
         onOpenWordBank={() => setIsWordBankOpen(true)}
         onToggleSound={() => setSoundEnabled((prev) => !prev)}
-        onOpenHomeConfirm={() => setIsHomeConfirmOpen(true)}
+        onOpenHomeConfirm={() => setShowHomeConfirmModal(true)}
       />
 
       {/* Main Content Screens */}
@@ -332,12 +326,33 @@ export default function App() {
         />
       )}
 
-      {/* Home Confirmation Modal */}
-      <HomeConfirmModal
-        isOpen={isHomeConfirmOpen}
-        onConfirm={handleConfirmHome}
-        onCancel={() => setIsHomeConfirmOpen(false)}
-      />
+      {/* Home Button Confirmation Popup (Requirement 3) */}
+      {showHomeConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl border border-amber-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+              <Home className="w-6 h-6" />
+            </div>
+            <p className="text-base font-bold text-slate-800 font-korean leading-snug">
+              처음 화면으로 돌아갈까요? 읽던 내용은 사라져요.
+            </p>
+            <div className="flex gap-2.5 pt-1">
+              <button
+                onClick={handleConfirmHome}
+                className="flex-1 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors cursor-pointer font-korean"
+              >
+                돌아가기
+              </button>
+              <button
+                onClick={() => setShowHomeConfirmModal(false)}
+                className="flex-1 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md shadow-amber-500/25 transition-colors cursor-pointer font-korean"
+              >
+                계속 읽기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
